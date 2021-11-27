@@ -1,19 +1,20 @@
 import  tensorflow as tf
-from tensorflow.keras import layers, optimizers, datasets, Sequential, Model
+from tensorflow import keras
+from tensorflow.keras import  optimizers, datasets, Sequential, Model
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
 import  os
 import datetime
 from tensorflow.python.keras.optimizer_v2 import adam
-from keras.applications.vgg16 import VGG16
-from keras.preprocessing import image
-from keras.applications.vgg16 import preprocess_input, decode_predictions
+from tensorflow.keras.applications.vgg16 import VGG16
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.applications.vgg16 import preprocess_input, decode_predictions
 import numpy as np
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'
 # include_top=True，表示會載入完整的 VGG16 模型，包括加在最後3層的卷積層
 # include_top=False，表示會載入 VGG16 的模型，不包括加在最後3層的卷積層，通常是取得 Features
 # 若下載失敗，請先刪除 c:\<使用者>\.keras\models\vgg16_weights_tf_dim_ordering_tf_kernels.h5
 model = VGG16(weights='imagenet', include_top=False,input_shape=[32,32,3]) 
-for layer in model.layers[:18]:
+for layer in model.layers[:17]:
     layer.trainable = False
 
 # 從頂部移出一層
@@ -34,10 +35,16 @@ def preprocess(x, y):
 
 
 (x,y), (x_test, y_test) = datasets.cifar10.load_data()
+x = x[:25000]
+y = y[:25000]
 y = tf.squeeze(y, axis=1)
 y = tf.one_hot(y, depth=10)
 y_test = tf.squeeze(y_test, axis=1)
 y_test = tf.one_hot(y_test, depth=10)
+print(y.shape)
+print(y_test.shape)
+y_test = tf.concat([y_test,y[:100]],0)
+x_test = tf.concat([x_test,x[:100]],0)
 print(x.shape, y.shape, x_test.shape, y_test.shape)
 
 
