@@ -3,8 +3,9 @@ from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import *
 from PyQt5 import uic
 import sys
-from imageio import imread
 from numpy.core.fromnumeric import shape
+from numpy.matrixlib.defmatrix import matrix
+from tensorflow.python.keras.engine.training import Model
 from ui import Ui_Form
 from ui2 import Ui_Form2
 import cv2
@@ -12,6 +13,10 @@ import os
 import numpy as np
 from PyQt5.QtCore import QLibraryInfo
 import math
+import tensorflow as tf
+from tensorflow.keras import datasets
+import matplotlib.pyplot as plt
+import matplotlib.image as iimg
 """from tensorflow.keras import models
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense, Activation, Dropout, Flatten
@@ -52,7 +57,15 @@ os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = QLibraryInfo.location(
 )
 
 '''
+def rotate(image, angle, center=None, scale=1.0):
+    (h, w) = image.shape[:2]
+    if center is None:
+        center = (w / 2, h / 2)
+ 
+    M = cv2.getRotationMatrix2D(center, angle, scale)
+    rotated = cv2.warpAffine(image, M, (w, h))
 
+    return rotated
 def translate(image, x, y):
     M = np.float32([[1, 0, x], [0, 1, y]])
     shifted = cv2.warpAffine(image, M, (image.shape[1], image.shape[0]))
@@ -97,11 +110,10 @@ def rgb2gray(rgb,weight):
 class Window:
 
     def __init__(self):
-        # 从文件中加载UI定义
         self.Form2 = QtWidgets.QWidget()
         self.ui2 = Ui_Form2()
         self.ui2.setupUi(self.Form2)
-
+        self.flag = 0
         self.Form = QtWidgets.QWidget()
         self.ui = Ui_Form()
         self.ui.setupUi(self.Form)
@@ -117,7 +129,15 @@ class Window:
         self.ui.sobelYBut.clicked.connect(self.sobely)
         self.ui.MagBut.clicked.connect(self.magnitude)
         self.ui.resizeBut.clicked.connect(self.resizeUI)
-        self.ui2.pushButton_2.clicked.connect(self.resize)
+        self.ui2.pushButton_2.clicked.connect(self.but2)
+        self.ui.accBut.clicked.connect(self.acc)
+        self.ui.modelBut.clicked.connect(self.modelstr)
+        self.ui.testBut.clicked.connect(self.test)
+        self.ui.hyperBut.clicked.connect(self.hyper)
+        self.ui.trainBut.clicked.connect(self.train)
+        self.ui.transBut.clicked.connect(self.transUI)
+        self.ui.shearBut.clicked.connect(self.shearUI)
+        self.ui.rotBut.clicked.connect(self.rotateUI)
         #layout = QVBoxLayout()
 
 
@@ -206,15 +226,128 @@ class Window:
         cv2.imshow("magnitude",magnitude)
 
     def resizeUI(self):
+        self.flag = 0
+        self.ui2.lineEdit_2.setEnabled(True)
         self.ui2.lineEdit_3.setEnabled(False)
         self.ui2.lineEdit_4.setEnabled(False)
+        self.ui2.label.setText("X")
+        self.ui2.label_2.setText("Y")
+        self.ui2.label_3.setText("")
+        self.ui2.label_4.setText("")
         self.Form2.show()
 
-    def resize(self):
-        self.img = cv2.imread("Q4_Image/SQUARE-01.png")
-        self.img = cv2.resize(self.img, (int(self.ui2.lineEdit.text()), int(self.ui2.lineEdit_2.text())), interpolation=cv2.INTER_AREA)
-        cv2.imshow("img",self.img)
-        self.Form2.hide()
+    def but2(self):
+        if(self.flag == 0):
+            self.img = cv2.imread("Q4_Image/SQUARE-01.png")
+            self.img = cv2.resize(self.img, (int(self.ui2.lineEdit.text()), int(self.ui2.lineEdit_2.text())), interpolation=cv2.INTER_AREA)
+            cv2.imshow("img",self.img)
+            self.Form2.hide()
+        if(self.flag == 1):
+            self.img = translate(self.img, int(self.ui2.lineEdit.text()), int(self.ui2.lineEdit_2.text()))
+            cv2.imshow("img",self.img)
+            self.Form2.hide()
+        if(self.flag == 2):
+            self.img = rotate(self.img, int(self.ui2.lineEdit.text()))
+            print(float(self.ui2.lineEdit_2.text()))
+            matrix = np.array([[float(self.ui2.lineEdit_2.text()),0,0],[0,float(self.ui2.lineEdit_3.text()),0]])
+            self.img = cv2.warpAffine(self.img,matrix,(self.img.shape[0],self.img.shape[1]))
+            cv2.imshow("img",self.img)
+            self.Form2.hide()
+        if(self.flag == 3):
+            matrix = np.array([[1,float(self.ui2.lineEdit_2.text()),0],[float(self.ui2.lineEdit_3.text()),1,0]])
+            self.img = cv2.warpAffine(self.img,matrix,(self.img.shape[0],self.img.shape[1]))
+            cv2.imshow("img",self.img)
+            self.Form2.hide()
+
+    def acc(self):
+        self.img = cv2.imread("epoch_accuracy.png")
+        cv2.imshow("acc",self.img)
+        self.img2 = cv2.imread("epoch_loss.png")
+        cv2.imshow("loss",self.img2)
+
+    def modelstr(self):
+        self.model = tf.keras.models.load_model("model.h5")
+        self.model.summary()
+
+    def test(self):
+        self.model = tf.keras.models.load_model("model.h5")
+        (x,y), (x_test, y_test) = datasets.cifar10.load_data()
+        num = self.ui.lineEdit.text()
+        #print(self.model.predict( x[int(num):int(num)+1] ))
+        fig = plt.figure()
+        ax = fig.add_axes([0,0,1,1])
+        langs = ['airplane', 'automobile', 'bird', 'cat','deer', 'dog', 'frog','hourse','ship','truck']
+        print(len(self.model.predict( x[int(num):int(num)+1] )[0]))
+        ax.bar(langs,self.model.predict( x[int(num):int(num)+1] )[0])
+        plt.show()
+
+    def hyper(self):
+        print("hyperparameter")
+        print("batch: 128")
+        print("learning rate: 0.001")
+        print("optimizer: Adam")
+
+    def train(self):
+        langs = ['airplane.png', 'automobile.png', 'bird.png', 'cat.png','deer.png', 'dog.png', 'frog.png','hourse.png','ship.png']
+        img = []
+        for i in langs:
+            img.append(iimg.imread(i)) 
+        f, ax = plt.subplots(3,3)
+        ax[0,0].imshow(img[0])
+        ax[0,1].imshow(img[1])
+        ax[0,2].imshow(img[2])
+        ax[1,0].imshow(img[3])
+        ax[1,1].imshow(img[4])
+        ax[1,2].imshow(img[5])
+        ax[2,0].imshow(img[6])
+        ax[2,1].imshow(img[7])
+        ax[2,2].imshow(img[8])
+        ax[0,0].set_title(langs[0])
+        ax[0,1].set_title(langs[1])
+        ax[0,2].set_title(langs[2])
+        ax[1,0].set_title(langs[3])
+        ax[1,1].set_title(langs[4])
+        ax[1,2].set_title(langs[5])
+        ax[2,0].set_title(langs[6])
+        ax[2,1].set_title(langs[7])
+        ax[2,2].set_title(langs[8])
+        plt.show()
+
+    def transUI(self):
+        self.flag = 1
+        self.ui2.lineEdit_2.setEnabled(True)
+        self.ui2.lineEdit_3.setEnabled(False)
+        self.ui2.lineEdit_4.setEnabled(False)
+        self.ui2.label.setText("Xnew")
+        self.ui2.label_2.setText("Ynew")
+        self.ui2.label_3.setText("")
+        self.ui2.label_4.setText("")
+        self.Form2.show()
+    
+    def rotateUI(self):
+        self.flag = 2
+        self.ui2.lineEdit_2.setEnabled(True)
+        self.ui2.lineEdit_3.setEnabled(True)
+        self.ui2.lineEdit_4.setEnabled(False)
+        self.ui2.label.setText("Angle")
+        self.ui2.label_2.setText("X")
+        self.ui2.label_3.setText("Y")
+        self.ui2.label_4.setText("")
+        self.Form2.show()
+
+    def shearUI(self):
+        self.flag = 3
+        self.ui2.lineEdit_2.setEnabled(True)
+        self.ui2.lineEdit_3.setEnabled(False)
+        self.ui2.lineEdit_4.setEnabled(False)
+        self.ui2.label.setText("shrx")
+        self.ui2.label_2.setText("shry")
+        self.ui2.label_3.setText("")
+        self.ui2.label_4.setText("")
+        self.Form2.show()
+
+
+
 
 app = QtWidgets.QApplication(sys.argv)
 ui = Window()
